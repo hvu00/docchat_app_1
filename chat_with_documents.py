@@ -42,11 +42,11 @@ def create_embeddings(chunks):
     return vector_store
 
 
-def ask_and_get_answer(vector_store, q, k=3):
+def ask_and_get_answer(model_name, vector_store, q, k=3):
     from langchain.chains import RetrievalQA
     from langchain.chat_models import ChatOpenAI
-
-    llm = ChatOpenAI(model='gpt-3.5-turbo', temperature=1)
+    
+    llm = ChatOpenAI(model=model_name, temperature=1)
     retriever = vector_store.as_retriever(search_type='similarity', search_kwargs={'k': k})
     chain = RetrievalQA.from_chain_type(llm=llm, chain_type="stuff", retriever=retriever)
 
@@ -55,9 +55,9 @@ def ask_and_get_answer(vector_store, q, k=3):
 
 
 # calculate embedding cost using tiktoken
-def calculate_embedding_cost(texts):
+def calculate_embedding_cost(model_name, texts):
     import tiktoken
-    enc = tiktoken.encoding_for_model('text-embedding-ada-002')
+    enc = tiktoken.encoding_for_model(model_name)
     total_tokens = sum([len(enc.encode(page.page_content)) for page in texts])
     # print(f'Total Tokens: {total_tokens}')
     # print(f'Embedding Cost in USD: {total_tokens / 1000 * 0.0004:.6f}')
@@ -73,20 +73,24 @@ def clear_history():
 if __name__ == "__main__":
     import os
 
+    model_name = "gpt-3.5-turbo"
+
     # loading the OpenAI api key from .env
     from dotenv import load_dotenv, find_dotenv
     load_dotenv(find_dotenv(), override=True)
 
+
+    st.set_page_config(layout="wide")
     #st.image('img.png')
-    st.subheader('LLM Question-Answering Application 🤖')
+    st.subheader('Chat With Your AI Expert')
     with st.sidebar:
         # text_input for the OpenAI API key (alternative to python-dotenv and .env)
-        api_key = st.text_input('OpenAI API Key:', type='password')
+        api_key = st.text_input("OpenAI API Key:", type='password')
         if api_key:
             os.environ['OPENAI_API_KEY'] = api_key
 
         # file uploader widget
-        uploaded_file = st.file_uploader('Upload a file:', type=['pdf', 'docx', 'txt'])
+        uploaded_files = st.file_uploader('Upload a file:', type=['pdf', 'docx', 'txt'], accept_multiple_files=True)
 
         # chunk size number widget
         chunk_size = st.number_input('Chunk size:', min_value=100, max_value=2048, value=512, on_change=clear_history)
@@ -97,36 +101,40 @@ if __name__ == "__main__":
         # add data button widget
         add_data = st.button('Add Data', on_click=clear_history)
 
-        if uploaded_file and add_data: # if the user browsed a file
+        if uploaded_files and add_data: # if the user browsed a file
             with st.spinner('Reading, chunking and embedding file ...'):
+                all_chunks = []
 
-                # writing the file from RAM to the current directory on disk
-                bytes_data = uploaded_file.read()
-                file_name = os.path.join('./', uploaded_file.name)
-                with open(file_name, 'wb') as f:
-                    f.write(bytes_data)
+                for file in uploaded_files:
+                    # writing the file from RAM to the current directory on disk
+                    bytes_data = file.read()
+                    file_name = os.path.join('./', file.name)
+                    with open(file_name, 'wb') as f:
+                        f.write(bytes_data)
 
-                data = load_document(file_name)
-                chunks = chunk_data(data, chunk_size=chunk_size)
-                st.write(f'Chunk size: {chunk_size}, Chunks: {len(chunks)}')
-
-                tokens, embedding_cost = calculate_embedding_cost(chunks)
+                    data = load_document(file_name)
+                    all_chunks += chunk_data(data, chunk_size=chunk_size)
+                
+                st.write(f'Chunk size: {chunk_size}, Chunks: {len(all_chunks)}')
+                tokens, embedding_cost = calculate_embedding_cost(model_name, all_chunks)
                 st.write(f'Embedding cost: ${embedding_cost:.4f}')
 
                 # creating the embeddings and returning the Chroma vector store
-                vector_store = create_embeddings(chunks)
+#                vector_store = create_embeddings(all_chunks)
 
                 # saving the vector store in the streamlit session state (to be persistent between reruns)
-                st.session_state.vs = vector_store
-                st.success('File uploaded, chunked and embedded successfully.')
+#                st.session_state.vs = vector_store
+#                st.success('File uploaded, chunked and embedded successfully.')
 
+    st.text_area(label='Chat History', value='', key='history')
     # user's question text input widget
-    q = st.text_input('Ask a question about the content of your file:')
+    q = st.text_input('Ask a question about the content of your file:', placeholder='Message to send')
     if q: # if the user entered a question and hit enter
         if 'vs' in st.session_state: # if there's the vector store (user uploaded, split and embedded a file)
+
             vector_store = st.session_state.vs
             st.write(f'k: {k}')
-            answer = ask_and_get_answer(vector_store, q, k)
+            answer = ask_and_get_answer(model_name, vector_store, q, k)
 
             # text area widget for the LLM answer
             st.text_area('LLM Answer: ', value=answer)
@@ -144,7 +152,5 @@ if __name__ == "__main__":
             h = st.session_state.history
 
             # text area widget for the chat history
-            st.text_area(label='Chat History', value=h, key='history', height=400)
-
-# run the app: streamlit run ./chat_with_documents.py
+            st.text_area(label='Chat History', value=h, key='history')
 
