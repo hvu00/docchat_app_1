@@ -59,9 +59,44 @@ def calculate_embedding_cost(model_name, texts):
     import tiktoken
     enc = tiktoken.encoding_for_model(model_name)
     total_tokens = sum([len(enc.encode(page.page_content)) for page in texts])
-#    logging.debug(f'Total Tokens: {total_tokens}')
-#    logging.debug(f'Embedding Cost in USD: {total_tokens / 1000 * 0.0004:.6f}')
+    logging.debug(f'Total Tokens: {total_tokens}')
+    logging.debug(f'Embedding Cost in USD: {total_tokens / 1000 * 0.0004:.6f}')
     return total_tokens, total_tokens / 1000 * 0.0004
+
+
+def send_chat_msg():
+    chat_input = st.session_state.chat_input
+
+    if not chat_input:
+        st.write("Please enter a message to send.")
+        return
+
+    if chat_input: # if the user entered a question and hit enter
+        if 'vs' not in st.session_state:
+            st.write("Please add at least one document to chat about.")
+            return
+
+        vector_store = st.session_state.vs
+        st.write(f'k: {k}')
+        answer = ask_and_get_answer(model_name, vector_store, chat_input, k)
+
+        # text area widget for the LLM answer
+        st.text_area('LLM Answer: ', value=answer)
+
+        st.divider()
+
+        # if there's no chat history in the session state, create it
+        if 'history' not in st.session_state:
+            st.session_state.history = ''
+
+        # the current question and answer
+        value = f'Q: {chat_input} \nA: {answer}'
+
+        st.session_state.history = f'{value} \n {"-" * 100} \n {st.session_state.history}'
+        chat_history = st.session_state.history
+
+        # text area widget for the chat history
+        st.code(chat_history)
 
 
 # clear the chat history from streamlit session state
@@ -119,37 +154,12 @@ if __name__ == "__main__":
                 st.write(f'Embedding cost: ${embedding_cost:.4f}')
 
                 # creating the embeddings and returning the Chroma vector store
-#                vector_store = create_embeddings(all_chunks)
+                vector_store = create_embeddings(all_chunks)
 
                 # saving the vector store in the streamlit session state (to be persistent between reruns)
-#                st.session_state.vs = vector_store
-#                st.success('File uploaded, chunked and embedded successfully.')
+                st.session_state.vs = vector_store
+                st.success('File uploaded, chunked and embedded successfully.')
 
-    st.text_area(label='Chat History', value='', key='history')
+    st.code('')
     # user's question text input widget
-    q = st.text_input('Ask a question about the content of your file:', placeholder='Message to send')
-    if q: # if the user entered a question and hit enter
-        if 'vs' in st.session_state: # if there's the vector store (user uploaded, split and embedded a file)
-
-            vector_store = st.session_state.vs
-            st.write(f'k: {k}')
-            answer = ask_and_get_answer(model_name, vector_store, q, k)
-
-            # text area widget for the LLM answer
-            st.text_area('LLM Answer: ', value=answer)
-
-            st.divider()
-
-            # if there's no chat history in the session state, create it
-            if 'history' not in st.session_state:
-                st.session_state.history = ''
-
-            # the current question and answer
-            value = f'Q: {q} \nA: {answer}'
-
-            st.session_state.history = f'{value} \n {"-" * 100} \n {st.session_state.history}'
-            h = st.session_state.history
-
-            # text area widget for the chat history
-            st.text_area(label='Chat History', value=h, key='history')
-
+    st.text_input('Ask a question about the content of your file:', placeholder='Message to send', key="chat_input", on_change=send_chat_msg)
