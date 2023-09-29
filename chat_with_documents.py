@@ -1,3 +1,4 @@
+import logging
 import streamlit as st
 from langchain.embeddings.openai import OpenAIEmbeddings
 from langchain.vectorstores import Chroma
@@ -6,21 +7,20 @@ from langchain.vectorstores import Chroma
 # loading PDF, DOCX and TXT files as LangChain Documents
 def load_document(file):
     import os
-    name, extension = os.path.splitext(file)
+    _, extension = os.path.splitext(file)
 
+    logging.info(f'Loading {file}')
     if extension == '.pdf':
         from langchain.document_loaders import PyPDFLoader
-        print(f'Loading {file}')
         loader = PyPDFLoader(file)
     elif extension == '.docx':
         from langchain.document_loaders import Docx2txtLoader
-        print(f'Loading {file}')
         loader = Docx2txtLoader(file)
     elif extension == '.txt':
         from langchain.document_loaders import TextLoader
         loader = TextLoader(file)
     else:
-        print('Document format is not supported!')
+        logging.error('Document format is not supported!')
         return None
 
     data = loader.load()
@@ -59,8 +59,8 @@ def calculate_embedding_cost(model_name, texts):
     import tiktoken
     enc = tiktoken.encoding_for_model(model_name)
     total_tokens = sum([len(enc.encode(page.page_content)) for page in texts])
-    # print(f'Total Tokens: {total_tokens}')
-    # print(f'Embedding Cost in USD: {total_tokens / 1000 * 0.0004:.6f}')
+#    logging.debug(f'Total Tokens: {total_tokens}')
+#    logging.debug(f'Embedding Cost in USD: {total_tokens / 1000 * 0.0004:.6f}')
     return total_tokens, total_tokens / 1000 * 0.0004
 
 
@@ -81,7 +81,6 @@ if __name__ == "__main__":
 
 
     st.set_page_config(layout="wide")
-    #st.image('img.png')
     st.subheader('Chat With Your AI Expert')
     with st.sidebar:
         # text_input for the OpenAI API key (alternative to python-dotenv and .env)
