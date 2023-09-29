@@ -4,6 +4,9 @@ from langchain.embeddings.openai import OpenAIEmbeddings
 from langchain.vectorstores import Chroma
 
 
+MODEL_NAME = "gpt-3.5-turbo"
+
+
 # loading PDF, DOCX and TXT files as LangChain Documents
 def load_document(file):
     import os
@@ -77,26 +80,19 @@ def send_chat_msg():
             return
 
         vector_store = st.session_state.vs
-        st.write(f'k: {k}')
-        answer = ask_and_get_answer(model_name, vector_store, chat_input, k)
-
-        # text area widget for the LLM answer
-        st.text_area('LLM Answer: ', value=answer)
-
-        st.divider()
+        answer = ask_and_get_answer(MODEL_NAME, vector_store, chat_input, st.session_state.k_value)
 
         # if there's no chat history in the session state, create it
         if 'history' not in st.session_state:
             st.session_state.history = ''
+        else:
+            st.session_state.history += '\n'
 
         # the current question and answer
-        value = f'Q: {chat_input} \nA: {answer}'
+        new_msg_n_resp = f'Q: {chat_input} \nA: {answer}'
 
-        st.session_state.history = f'{value} \n {"-" * 100} \n {st.session_state.history}'
-        chat_history = st.session_state.history
-
-        # text area widget for the chat history
-        st.code(chat_history)
+        st.session_state.history = f'{st.session_state.history}{new_msg_n_resp}'
+        st.session_state.chat_history = st.session_state.history
 
 
 # clear the chat history from streamlit session state
@@ -107,8 +103,6 @@ def clear_history():
 
 if __name__ == "__main__":
     import os
-
-    model_name = "gpt-3.5-turbo"
 
     # loading the OpenAI api key from .env
     from dotenv import load_dotenv, find_dotenv
@@ -129,8 +123,11 @@ if __name__ == "__main__":
         # chunk size number widget
         chunk_size = st.number_input('Chunk size:', min_value=100, max_value=2048, value=512, on_change=clear_history)
 
+        # chunk overlap number widget
+        chunk_overlap = st.number_input('Chunk overlap:', min_value=0, max_value=2048, value=20, on_change=clear_history)
+
         # k number input widget
-        k = st.number_input('k', min_value=1, max_value=20, value=3, on_change=clear_history)
+        k = st.number_input('k', min_value=1, max_value=20, value=3, on_change=clear_history, key="k_value")
 
         # add data button widget
         add_data = st.button('Add Data', on_click=clear_history)
@@ -147,10 +144,10 @@ if __name__ == "__main__":
                         f.write(bytes_data)
 
                     data = load_document(file_name)
-                    all_chunks += chunk_data(data, chunk_size=chunk_size)
+                    all_chunks += chunk_data(data, chunk_size, chunk_overlap)
                 
                 st.write(f'Chunk size: {chunk_size}, Chunks: {len(all_chunks)}')
-                tokens, embedding_cost = calculate_embedding_cost(model_name, all_chunks)
+                tokens, embedding_cost = calculate_embedding_cost(MODEL_NAME, all_chunks)
                 st.write(f'Embedding cost: ${embedding_cost:.4f}')
 
                 # creating the embeddings and returning the Chroma vector store
@@ -160,6 +157,6 @@ if __name__ == "__main__":
                 st.session_state.vs = vector_store
                 st.success('File uploaded, chunked and embedded successfully.')
 
-    st.code('')
+    st.text_area("Chat history", value="", height=500, key="chat_history")
     # user's question text input widget
     st.text_input('Ask a question about the content of your file:', placeholder='Message to send', key="chat_input", on_change=send_chat_msg)
