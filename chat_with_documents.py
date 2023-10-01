@@ -3,9 +3,7 @@ import streamlit as st
 from langchain.embeddings.openai import OpenAIEmbeddings
 from langchain.vectorstores import Chroma
 
-
 MODEL_NAME = "gpt-3.5-turbo"
-
 
 # loading PDF, DOCX and TXT files as LangChain Documents
 def load_document(file):

@@ -3,5 +3,7 @@ langchain
 docx2txt
 pypdf
 streamlit
-chromadb
+chromadb==0.3.29
 tiktoken
+pysqlite3
+pysqlite3-binary
