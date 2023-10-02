@@ -43,15 +43,26 @@ def create_embeddings(chunks):
     return vector_store
 
 
-def ask_and_get_answer(model_name, vector_store, q, k=3):
+def ask_and_get_answer(model_name, vector_store, question, k=3):
     from langchain.chains import RetrievalQA
     from langchain.chat_models import ChatOpenAI
+    from openai import ChatCompletion
     
     llm = ChatOpenAI(model=model_name, temperature=1)
-    retriever = vector_store.as_retriever(search_type='similarity', search_kwargs={'k': k})
-    chain = RetrievalQA.from_chain_type(llm=llm, chain_type="stuff", retriever=retriever)
 
-    answer = chain.run(q)
+    if vector_store:
+        retriever = vector_store.as_retriever(search_type='similarity', search_kwargs={'k': k})
+        chain = RetrievalQA.from_chain_type(llm=llm, chain_type="stuff", retriever=retriever)
+        answer = chain.run(question)
+    else:
+        answer = ChatCompletion.create(
+            model=MODEL_NAME,
+            messages=[
+                {"role": "user", "content": question}
+            ]
+        )
+        answer = answer.choices[0].message.content
+
     return answer
 
 
@@ -73,11 +84,8 @@ def send_chat_msg():
         return
 
     if chat_input: # if the user entered a question and hit enter
-        if 'vs' not in st.session_state:
-            st.write("Please add at least one document to chat about.")
-            return
+        vector_store = st.session_state.vs if 'vs' in st.session_state else None
 
-        vector_store = st.session_state.vs
         answer = ask_and_get_answer(MODEL_NAME, vector_store, chat_input, st.session_state.k_value)
 
         # if there's no chat history in the session state, create it
@@ -126,7 +134,7 @@ if __name__ == "__main__":
 
         # k number input widget
         k = st.number_input('k', min_value=1, max_value=20, value=3, on_change=clear_history, key="k_value")
-
+        
         # add data button widget
         add_data = st.button('Add Data', on_click=clear_history)
 
