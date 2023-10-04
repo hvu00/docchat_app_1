@@ -3,7 +3,10 @@ import streamlit as st
 from langchain.embeddings.openai import OpenAIEmbeddings
 from langchain.vectorstores import Chroma
 
+
 MODEL_NAME = "gpt-3.5-turbo"
+INITIAL_CHAT_HISTORY = [{"role": "assistant", "content": "Train me with documents and I will use them in our chat!"}]
+
 
 # loading PDF, DOCX and TXT files as LangChain Documents
 def load_document(file):
@@ -76,8 +79,12 @@ def calculate_embedding_cost(model_name, texts):
     return total_tokens, total_tokens / 1000 * 0.0004
 
 
-def send_chat_msg():
+def send_chat_msg():    
     chat_input = st.session_state.chat_input
+
+    if 'OPENAI_API_KEY' not in os.environ:
+        st.write("You need an OpenAI API Key to chat.")
+        return
 
     if not chat_input:
         st.write("Please enter a message to send.")
@@ -88,23 +95,21 @@ def send_chat_msg():
 
         answer = ask_and_get_answer(MODEL_NAME, vector_store, chat_input, st.session_state.k_value)
 
-        # if there's no chat history in the session state, create it
-        if 'history' not in st.session_state:
-            st.session_state.history = ''
-        else:
-            st.session_state.history += '\n'
+        if 'chat_history' not in st.session_state:
+            st.session_state.chat_history = INITIAL_CHAT_HISTORY
 
-        # the current question and answer
-        new_msg_n_resp = f'Q: {chat_input} \nA: {answer}'
+        st.session_state.chat_history.append({"role": "user", "content": st.session_state.chat_input})
+        st.session_state.chat_history.append({"role": "assistant", "content": answer})
 
-        st.session_state.history = f'{st.session_state.history}{new_msg_n_resp}'
-        st.session_state.chat_history = st.session_state.history
+        for message in reversed(st.session_state.chat_history[1:]):
+            with st.chat_message(message["role"]):
+                st.write(message["content"])
 
 
 # clear the chat history from streamlit session state
 def clear_history():
-    if 'history' in st.session_state:
-        del st.session_state['history']
+    st.session_state.messages = INITIAL_CHAT_HISTORY
+    st.sidebar.button('Clear Chat History', on_click=clear_history)
 
 
 if __name__ == "__main__":
@@ -114,28 +119,25 @@ if __name__ == "__main__":
     from dotenv import load_dotenv, find_dotenv
     load_dotenv(find_dotenv(), override=True)
 
-
     st.set_page_config(layout="wide")
-    st.subheader('Chat With Your AI Expert')
     with st.sidebar:
+        st.subheader('Chat With Your AI')
+
         # text_input for the OpenAI API key (alternative to python-dotenv and .env)
         api_key = st.text_input("OpenAI API Key:", type='password')
         if api_key:
             os.environ['OPENAI_API_KEY'] = api_key
-
+            
         # file uploader widget
         uploaded_files = st.file_uploader('Upload a file:', type=['pdf', 'docx', 'txt'], accept_multiple_files=True)
 
         # chunk size number widget
-        #DEL chunk_size = st.number_input('Chunk size:', min_value=100, max_value=2048, value=512, on_change=clear_history)
         chunk_size = st.slider('Chunk size:', min_value=100, max_value=2048, value=512, step=10, on_change=clear_history)
 
         # chunk overlap number widget
-        #DEL chunk_overlap = st.number_input('Chunk overlap:', min_value=0, max_value=2048, value=20, on_change=clear_history)
         chunk_overlap = st.slider('Chunk overlap:', min_value=0, max_value=2048, value=20, step=10, on_change=clear_history)
 
         # k number input widget
-        #DEL k = st.number_input('k', min_value=1, max_value=20, value=3, on_change=clear_history, key="k_value")
         k = st.slider('k', min_value=1, max_value=20, value=3, step=10, on_change=clear_history, key="k_value")
         
         # add data button widget
@@ -166,6 +168,7 @@ if __name__ == "__main__":
                 st.session_state.vs = vector_store
                 st.success('File uploaded, chunked and embedded successfully.')
 
-    st.text_area("Chat history", value="", height=500, key="chat_history")
-    # user's question text input widget
-    st.text_input('Ask a question about the content of your file:', placeholder='Message to send', key="chat_input", on_change=send_chat_msg)
+    msg = st.chat_message("assistant")
+    msg.write(INITIAL_CHAT_HISTORY[0]["content"])
+    
+    st.chat_input('Say something', key="chat_input", on_submit=send_chat_msg)
