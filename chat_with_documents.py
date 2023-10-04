@@ -127,13 +127,16 @@ if __name__ == "__main__":
         uploaded_files = st.file_uploader('Upload a file:', type=['pdf', 'docx', 'txt'], accept_multiple_files=True)
 
         # chunk size number widget
-        chunk_size = st.number_input('Chunk size:', min_value=100, max_value=2048, value=512, on_change=clear_history)
+        #DEL chunk_size = st.number_input('Chunk size:', min_value=100, max_value=2048, value=512, on_change=clear_history)
+        chunk_size = st.slider('Chunk size:', min_value=100, max_value=2048, value=512, step=10, on_change=clear_history)
 
         # chunk overlap number widget
-        chunk_overlap = st.number_input('Chunk overlap:', min_value=0, max_value=2048, value=20, on_change=clear_history)
+        #DEL chunk_overlap = st.number_input('Chunk overlap:', min_value=0, max_value=2048, value=20, on_change=clear_history)
+        chunk_overlap = st.slider('Chunk overlap:', min_value=0, max_value=2048, value=20, step=10, on_change=clear_history)
 
         # k number input widget
-        k = st.number_input('k', min_value=1, max_value=20, value=3, on_change=clear_history, key="k_value")
+        #DEL k = st.number_input('k', min_value=1, max_value=20, value=3, on_change=clear_history, key="k_value")
+        k = st.slider('k', min_value=1, max_value=20, value=3, step=10, on_change=clear_history, key="k_value")
         
         # add data button widget
         add_data = st.button('Add Data', on_click=clear_history)
