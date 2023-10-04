@@ -108,8 +108,7 @@ def send_chat_msg():
 
 # clear the chat history from streamlit session state
 def clear_history():
-    st.session_state.messages = INITIAL_CHAT_HISTORY
-    st.sidebar.button('Clear Chat History', on_click=clear_history)
+    st.session_state.chat_history = INITIAL_CHAT_HISTORY
 
 
 if __name__ == "__main__":
